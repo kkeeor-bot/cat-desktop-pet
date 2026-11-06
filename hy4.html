@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blue · Desktop Cat</title>
+<style>
+:root{ --pet-w:300px; }
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:transparent}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+}
+/* Default: completely transparent. Toggle the checkerboard to prove it. */
+body.preview{
+  background-color:#f6f2e9;
+  background-image:
+    linear-gradient(45deg,#e6e0d2 25%,transparent 25%,transparent 75%,#e6e0d2 75%),
+    linear-gradient(45deg,#e6e0d2 25%,transparent 25%,transparent 75%,#e6e0d2 75%);
+  background-size:28px 28px;background-position:0 0,14px 14px;
+}
+
+/* ---------- layout ---------- */
+#pet{
+  position:fixed;left:0;top:0;width:var(--pet-w);aspect-ratio:320/380;
+  z-index:5;cursor:grab;touch-action:none;outline:none;
+}
+#pet:active{cursor:grabbing}
+#pet:focus-visible .focus-ring{opacity:1}
+#cat{display:block;width:100%;height:100%;overflow:visible;
+  filter:drop-shadow(0 9px 8px rgba(48,58,68,.20))}
+svg g,svg ellipse,svg path,svg text{transform-box:view-box}
+.focus-ring{opacity:0;transition:opacity .2s}
+
+#hint{
+  position:fixed;bottom:54px;left:50%;transform:translateX(-50%);z-index:20;
+  padding:7px 14px;border-radius:999px;font-size:12px;letter-spacing:.3px;
+  color:#5f6a72;background:rgba(255,255,255,.78);border:1px solid rgba(150,175,195,.35);
+  box-shadow:0 4px 14px rgba(60,80,100,.10);pointer-events:none;white-space:nowrap;
+  transition:opacity 1s;
+}
+#hint.fade{opacity:0}
+#panel{position:fixed;left:14px;bottom:14px;z-index:20;display:flex;gap:6px;flex-wrap:wrap;max-width:70vw}
+#panel button{
+  font:inherit;font-size:12px;padding:6px 10px;border-radius:9px;cursor:pointer;
+  color:#5d6a74;background:rgba(255,255,255,.72);border:1px solid rgba(150,175,195,.42);
+  box-shadow:0 3px 10px rgba(60,80,100,.09);transition:background .2s,transform .2s;
+}
+#panel button:hover{background:#fff;transform:translateY(-2px)}
+#panel button:active{transform:translateY(0)}
+
+/* ---------- speech bubble ---------- */
+.bubble{
+  position:absolute;left:62%;top:-26px;z-index:3;
+  min-width:64px;max-width:230px;padding:8px 13px;border-radius:16px;
+  background:rgba(255,253,248,.97);border:1.5px solid rgba(150,180,205,.55);
+  box-shadow:0 7px 18px rgba(60,80,100,.18);
+  color:#57646d;font-size:14px;line-height:1.2;white-space:nowrap;
+  opacity:0;pointer-events:none;
+  transform:translate(-50%,9px) scale(.88);transform-origin:30% 100%;
+  transition:opacity .22s,transform .3s cubic-bezier(.22,1.4,.5,1);
+}
+.bubble.show{opacity:1;transform:translate(-50%,0) scale(1)}
+.bubble::after{
+  content:"";position:absolute;left:20px;bottom:-7px;width:12px;height:12px;
+  background:inherit;border-right:1.5px solid rgba(150,180,205,.55);
+  border-bottom:1.5px solid rgba(150,180,205,.55);transform:rotate(45deg);
+  border-bottom-right-radius:3px;
+}
+.bubble.below{top:20%;left:86%}
+
+/* ---------- floating particles ---------- */
+#particles{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:visible}
+.bit{position:absolute;width:21px;height:21px;animation:floatUp 1.55s ease-out forwards}
+.bit svg{display:block;width:100%;height:100%}
+@keyframes floatUp{
+  0%{opacity:0;transform:translate(0,12px) scale(.35) rotate(0)}
+  18%{opacity:1}
+  100%{opacity:0;transform:translate(var(--dx,0px),-92px) scale(1.15) rotate(var(--rot,20deg))}
+}
+
+/* ---------- SVG character ---------- */
+.cat-root{transform-origin:160px 300px;transition:transform .35s ease-out}
+.stretch-wrap{transform-origin:160px 330px;transition:transform .3s}
+.breath{transform-origin:160px 322px;animation:breathe 3.4s ease-in-out infinite}
+.tail{transform-origin:210px 278px;animation:tailwag 2.6s ease-in-out infinite}
+.head{transform-origin:160px 196px;transition:transform .5s cubic-bezier(.22,1,.36,1)}
+.ear-l{transform-origin:120px 90px}
+.ear-r{transform-origin:200px 90px}
+.leg{transform-origin:142px 252px;transition:transform .35s}
+.leg-r{transform-origin:178px 252px}
+.pupil{transition:transform .12s ease-out}
+.eyes-open{transform-origin:160px 138px;transition:transform .09s ease,opacity .12s}
+.eyes-closed,.eyes-happy,.blush,.yawn{opacity:0;transition:opacity .13s}
+.mouth{transition:opacity .15s}
+.zzz{opacity:0;transition:opacity .6s}
+.zzz text{opacity:0;animation:zzzFloat 2.8s ease-in-out infinite}
+.zzz text:nth-child(2){animation-delay:.9s}
+.zzz text:nth-child(3){animation-delay:1.8s}
+
+@keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.012,1.022)}}
+@keyframes tailwag{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(11deg)}}
+@keyframes earTwitch{0%,100%{transform:rotate(0)}35%{transform:rotate(-10deg)}70%{transform:rotate(4deg)}}
+@keyframes zzzFloat{0%{opacity:0;transform:translate(0,10px)}25%{opacity:.95}100%{opacity:0;transform:translate(11px,-20px)}}
+
+/* ---------- one-shot animations ---------- */
+@keyframes stretchBody{
+  0%{transform:scale(1,1) rotate(0)}
+  22%{transform:scale(1.06,.94) rotate(2deg)}
+  55%{transform:scale(.93,1.12) rotate(-5deg)}
+  78%{transform:scale(.97,1.05) rotate(-2deg)}
+  100%{transform:scale(1,1) rotate(0)}
+}
+@keyframes bounce{
+  0%,100%{transform:translateY(0)}25%{transform:translateY(-21px)}
+  50%{transform:translateY(0)}70%{transform:translateY(-8px)}85%{transform:translateY(0)}
+}
+@keyframes pounce{
+  0%{transform:translateY(0) scale(1)}20%{transform:translateY(7px) scale(1.05,.94)}
+  50%{transform:translateY(-27px) scale(.96,1.06)}75%{transform:translateY(-4px)}
+  100%{transform:translateY(0) scale(1)}
+}
+@keyframes wiggle{
+  0%,100%{transform:rotate(0)}20%{transform:rotate(-5deg)}
+  45%{transform:rotate(5deg)}70%{transform:rotate(-3deg)}
+}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}
+  50%{transform:translateX(6px)}75%{transform:translateX(-3px)}
+}
+@keyframes drop{
+  0%{transform:translateY(-11px) scale(1.03,.96)}45%{transform:translateY(5px) scale(.98,1.03)}
+  70%{transform:translateY(-4px)}100%{transform:translateY(0) scale(1)}
+}
+#pet.anim-stretch .stretch-wrap{animation:stretchBody 1.6s cubic-bezier(.34,1.15,.64,1)}
+#pet.anim-bounce  .stretch-wrap{animation:bounce .85s cubic-bezier(.3,.8,.4,1)}
+#pet.anim-pounce  .stretch-wrap{animation:pounce .9s ease-out}
+#pet.anim-wiggle  .stretch-wrap{animation:wiggle .8s ease-in-out}
+#pet.anim-shake   .stretch-wrap{animation:shake .55s ease-in-out}
+#pet.anim-drop    .stretch-wrap{animation:drop .55s ease-out}
+#pet.twitch .ear-r{animation:earTwitch .45s ease}
+#pet.twitch .ear-l{animation:earTwitch .45s ease .07s}
+
+/* ---------- moods ---------- */
+#pet[data-state="sleep"] .breath{animation-duration:5.2s}
+#pet[data-state="sleep"] .tail{animation-duration:6s}
+#pet[data-state="sleep"] .head{transform:translateY(8px) rotate(-9deg)}
+#pet[data-state="sleep"] .zzz{opacity:1}
+#pet[data-state="happy"] .head{transform:rotate(3deg)}
+#pet[data-state="purr"]  .head{transform:rotate(-3deg)}
+#pet[data-state="shy"]   .head{transform:rotate(-10deg) translateX(-3px)}
+#pet[data-state="surprise"] .head{transform:translateY(-5px) rotate(-3deg)}
+#pet[data-state="play"]  .head{transform:rotate(6deg)}
+#pet[data-state="stretch"] .head{transform:translateY(10px) rotate(-6deg)}
+#pet[data-state="stretch"] .leg{transform:translateY(11px) scaleY(1.1)}
+#pet[data-state="stretch"] .yawn{opacity:1}
+#pet[data-state="stretch"] .mouth{opacity:0}
+#pet[data-state="surprise"] .eyes-open{transform:scale(1.13)}
+#pet[data-state="surprise"] .tail,
+#pet[data-state="play"] .tail,
+#pet[data-state="happy"] .tail{animation-duration:.55s}
+#pet[data-state="drag"] .stretch-wrap{transform:rotate(-4deg) scale(1.02)}
+#pet[data-state="drag"] .leg-l{transform:translateY(8px) rotate(9deg)}
+#pet[data-state="drag"] .leg-r{transform:translateY(8px) rotate(-9deg)}
+#pet[data-state="drag"] .tail{animation-duration:.42s}
+
+#pet[data-state="happy"] .eyes-open,
+#pet[data-state="purr"]  .eyes-open,
+#pet[data-state="shy"]   .eyes-open,
+#pet[data-state="sleep"] .eyes-open{opacity:0}
+#pet[data-state="happy"] .eyes-happy,
+#pet[data-state="purr"]  .eyes-happy,
+#pet[data-state="shy"]   .eyes-happy{opacity:1}
+#pet[data-state="sleep"] .eyes-closed{opacity:1}
+#pet[data-state="happy"] .blush,
+#pet[data-state="purr"]  .blush,
+#pet[data-state="shy"]   .blush{opacity:1}
+#pet.blink .eyes-open{transform:scaleY(.07)}
+#pet.blink .eyes-closed{opacity:1}
+
+@media (prefers-reduced-motion:reduce){
+  .breath,.tail,.zzz text,.ear-l,.ear-r{animation:none!important}
+  #pet[class*="anim-"] .stretch-wrap{animation:none!important}
+}
+@media (max-width:560px){
+  #panel{gap:4px}
+  #panel button{font-size:11px;padding:5px 7px}
+  #hint{font-size:11px;white-space:normal;text-align:center;width:88vw;bottom:76px}
+}
+</style>
+</head>
+<body>
+
+<div id="pet" data-state="idle" tabindex="0" role="img" aria-label="Blue, a silver tabby desktop cat in a blue lace dress">
+  <div id="bubble" class="bubble"></div>
+  <div id="particles"></div>
+
+  <svg id="cat" viewBox="0 0 320 380" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="furGrad" x1="0" y1="0" x2=".18" y2="1">
+        <stop offset="0" stop-color="#eef0ed"/><stop offset=".45" stop-color="#c9ced0"/><stop offset="1" stop-color="#a7aeb2"/>
+      </linearGradient>
+      <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#e2e6e5"/><stop offset=".5" stop-color="#c6cccd"/><stop offset="1" stop-color="#b2b9bc"/>
+      </linearGradient>
+      <linearGradient id="dressGrad" x1="0" y1="0" x2=".25" y2="1">
+        <stop offset="0" stop-color="#e0f0fa"/><stop offset=".55" stop-color="#bddcf0"/><stop offset="1" stop-color="#9cc5e2"/>
+      </linearGradient>
+      <radialGradient id="eyeGrad" cx=".38" cy=".3" r=".78">
+        <stop offset="0" stop-color="#e9f293"/><stop offset=".55" stop-color="#bfd345"/><stop offset="1" stop-color="#7c9a26"/>
+      </radialGradient>
+      <radialGradient id="shadowGrad">
+        <stop offset="0" stop-color="#48545f" stop-opacity=".24"/><stop offset="1" stop-color="#48545f" stop-opacity="0"/>
+      </radialGradient>
+      <clipPath id="headClip"><use href="#headShape"/></clipPath>
+      <clipPath id="tailClip"><use href="#tailShape"/></clipPath>
+      <clipPath id="skirtClip"><use href="#skirtShape"/></clipPath>
+
+      <g id="flower">
+        <g fill="#f6b3c3" stroke="#e79aad" stroke-width=".7">
+          <circle cx="0" cy="-4.2" r="3"/><circle cx="4" cy="-1.3" r="3"/>
+          <circle cx="2.5" cy="3.4" r="3"/><circle cx="-2.5" cy="3.4" r="3"/><circle cx="-4" cy="-1.3" r="3"/>
+        </g>
+        <circle r="2.3" fill="#f8d172"/>
+      </g>
+    </defs>
+
+    <g id="catRoot" class="cat-root">
+      <g class="stretch-wrap">
+        <g class="breath">
+
+          <!-- soft grounding shadow (semi-transparent, still transparent background) -->
+          <ellipse cx="160" cy="346" rx="88" ry="14" fill="url(#shadowGrad)"/>
+
+          <!-- striped curled tail -->
+          <g class="tail">
+            <path id="tailShape" d="M 210 266 C 250 262 284 284 282 314 C 280 342 242 354 202 342 C 186 337 174 330 168 323 C 162 316 166 306 176 309 C 192 315 214 321 232 318 C 248 315 254 305 244 297 C 234 289 218 289 206 291 Z"
+                  fill="url(#furGrad)" stroke="#8d9599" stroke-width="2" stroke-linejoin="round"/>
+            <g clip-path="url(#tailClip)" fill="#596167" opacity=".82">
+              <rect x="246" y="258" width="11" height="96" rx="5" transform="rotate(15 251 306)"/>
+              <rect x="266" y="270" width="11" height="96" rx="5" transform="rotate(25 271 318)"/>
+              <rect x="222" y="256" width="11" height="96" rx="5" transform="rotate(7 227 304)"/>
+              <rect x="196" y="288" width="10" height="76" rx="5" transform="rotate(-17 201 326)"/>
+              <rect x="176" y="288" width="10" height="76" rx="5" transform="rotate(-28 181 326)"/>
+            </g>
+            <path d="M 216 274 C 244 272 268 288 272 306" stroke="#f4f6f3" stroke-width="4" fill="none" opacity=".38" stroke-linecap="round"/>
+          </g>
+
+          <!-- body -->
+          <path d="M 116 190 C 100 208 94 246 96 288 C 98 314 124 330 160 330 C 196 330 222 314 224 288 C 226 246 220 208 204 190 Z"
+                fill="url(#furGrad)" stroke="#959c9f" stroke-width="2"/>
+          <path d="M 104 258 C 112 266 118 278 118 292" stroke="#7e878c" stroke-width="6" fill="none" opacity=".45" stroke-linecap="round"/>
+          <path d="M 216 258 C 208 266 202 278 202 292" stroke="#7e878c" stroke-width="6" fill="none" opacity=".45" stroke-linecap="round"/>
+
+          <!-- little blue bow on the back, as in the photos -->
+          <g class="bow">
+            <path d="M 100 208 C 86 196 76 200 78 210 C 80 220 90 222 100 214 Z" fill="#a9cfe8" stroke="#89b5d2" stroke-width="1.5"/>
+            <path d="M 100 208 C 114 196 124 200 122 210 C 120 220 110 222 100 214 Z" fill="#b9dbef" stroke="#89b5d2" stroke-width="1.5"/>
+            <circle cx="100" cy="211" r="5.5" fill="#8fbcd9" stroke="#7aa9c9" stroke-width="1"/>
+            <path d="M 96 216 C 92 226 88 230 84 232" stroke="#a9cfe8" stroke-width="5" fill="none" stroke-linecap="round"/>
+          </g>
+
+          <!-- powder blue dress -->
+          <g class="dress">
+            <path id="skirtShape" d="M 122 208 C 110 230 102 262 100 292 C 122 306 140 312 160 312 C 180 312 198 306 220 292 C 218 262 210 230 198 208 Z"
+                  fill="url(#dressGrad)" stroke="#8fb9d6" stroke-width="2" stroke-linejoin="round"/>
+            <g clip-path="url(#skirtClip)">
+              <path d="M 138 218 C 128 246 124 274 126 302" stroke="#e8f5fd" stroke-width="5" fill="none" opacity=".6" stroke-linecap="round"/>
+              <path d="M 160 224 C 158 252 158 280 160 308" stroke="#9cc6e3" stroke-width="4" fill="none" opacity=".5" stroke-linecap="round"/>
+              <path d="M 182 218 C 192 246 196 274 194 302" stroke="#e8f5fd" stroke-width="5" fill="none" opacity=".6" stroke-linecap="round"/>
+              <!-- tiny floral print, like the embroidered panel in the photos -->
+              <g stroke="#8fb98d" stroke-width="2" fill="none">
+                <path d="M 112 284 C 108 274 108 264 112 258"/>
+                <path d="M 208 284 C 212 274 212 264 208 258"/>
+              </g>
+              <g fill="#9dc79a">
+                <ellipse cx="107" cy="272" rx="4" ry="2.4" transform="rotate(-35 107 272)"/>
+                <ellipse cx="115" cy="264" rx="4" ry="2.4" transform="rotate(30 115 264)"/>
+                <ellipse cx="213" cy="272" rx="4" ry="2.4" transform="rotate(35 213 272)"/>
+                <ellipse cx="205" cy="264" rx="4" ry="2.4" transform="rotate(-30 205 264)"/>
+              </g>
+              <use href="#flower" transform="translate(112 252) scale(.95)"/>
+              <use href="#flower" transform="translate(208 252) scale(.95)"/>
+              <use href="#flower" transform="translate(116 296) scale(.7)"/>
+              <use href="#flower" transform="translate(204 296) scale(.7)"/>
+              <circle cx="150" cy="240" r="2" fill="#8fb9d6" opacity=".55"/>
+              <circle cx="170" cy="252" r="2" fill="#8fb9d6" opacity=".55"/>
+              <circle cx="160" cy="278" r="2" fill="#8fb9d6" opacity=".55"/>
+            </g>
+            <!-- scalloped eyelet lace at the hem -->
+            <path d="M 98 288 C 120 302 140 308 160 308 C 180 308 200 302 222 288 L 224 298 C 200 312 180 318 160 318 C 140 318 120 312 96 298 Z" fill="#fffdf7"/>
+            <path d="M 100 293 C 122 307 140 313 160 313 C 180 313 198 307 220 293" stroke="#e4d9c2" stroke-width="2.2" stroke-dasharray="1.5 8" stroke-linecap="round" fill="none"/>
+            <path d="M 99 300 C 121 314 141 320 160 320 C 179 320 199 314 221 300" stroke="#fffdf7" stroke-width="10" stroke-dasharray=".1 13" stroke-linecap="round" fill="none"/>
+
+            <!-- puffed sleeves with lace frills -->
+            <path d="M 116 210 C 100 212 92 230 96 248 C 106 256 122 250 128 238 C 130 224 126 214 116 210 Z" fill="url(#dressGrad)" stroke="#8fb9d6" stroke-width="1.8"/>
+            <path d="M 204 210 C 220 212 228 230 224 248 C 214 256 198 250 192 238 C 190 224 194 214 204 210 Z" fill="url(#dressGrad)" stroke="#8fb9d6" stroke-width="1.8"/>
+            <path d="M 96 244 C 106 252 118 250 128 238" stroke="#fffdf7" stroke-width="8" stroke-linecap="round" fill="none"/>
+            <path d="M 224 244 C 214 252 202 250 192 238" stroke="#fffdf7" stroke-width="8" stroke-linecap="round" fill="none"/>
+            <path d="M 96 247 C 106 255 118 253 128 241" stroke="#fffdf7" stroke-width="8" stroke-dasharray=".1 10" stroke-linecap="round" fill="none"/>
+            <path d="M 224 247 C 214 255 202 253 192 241" stroke="#fffdf7" stroke-width="8" stroke-dasharray=".1 10" stroke-linecap="round" fill="none"/>
+          </g>
+
+          <!-- fluffy white chest ruff -->
+          <g class="ruff">
+            <path d="M 132 196 C 132 216 138 236 160 246 C 182 236 188 216 188 196 C 174 204 146 204 132 196 Z"
+                  fill="#fbfaf5" stroke="#e9e5db" stroke-width="1.5"/>
+            <circle cx="142" cy="232" r="7" fill="#fbfaf5"/>
+            <circle cx="152" cy="242" r="7" fill="#fbfaf5"/>
+            <circle cx="168" cy="242" r="7" fill="#fbfaf5"/>
+            <circle cx="178" cy="232" r="7" fill="#fbfaf5"/>
+            <path d="M 142 206 C 146 220 150 230 160 238 C 170 230 174 220 178 206" stroke="#e8e4d9" stroke-width="1.5" fill="none" opacity=".8"/>
+          </g>
+
+          <!-- eyelet lace collar, over the ruff -->
+          <path d="M 118 202 C 126 222 140 232 160 232 C 180 232 194 222 202 202 C 188 210 174 214 160 214 C 146 214 132 210 118 202 Z"
+                fill="#fffdf7" stroke="#e8dfcb" stroke-width="1.5"/>
+          <path d="M 122 208 C 132 224 144 230 160 230 C 176 230 188 224 198 208" stroke="#e2d7bf" stroke-width="2.2" stroke-dasharray="1.5 7" stroke-linecap="round" fill="none"/>
+          <path d="M 120 226 C 132 240 144 246 160 246 C 176 246 188 240 200 226" stroke="#fffdf7" stroke-width="9" stroke-dasharray=".1 12" stroke-linecap="round" fill="none"/>
+
+          <!-- slim striped front legs and white socks -->
+          <g class="leg leg-l">
+            <path d="M 136 258 C 130 274 130 292 133 304 C 139 310 149 310 154 304 C 157 288 156 268 152 258 Z" fill="url(#furGrad)" stroke="#9aa1a4" stroke-width="1.8"/>
+            <path d="M 131 274 C 139 277 147 277 155 274" stroke="#5f676c" stroke-width="3.5" fill="none" opacity=".65" stroke-linecap="round"/>
+            <path d="M 130 288 C 138 291 148 291 156 288" stroke="#5f676c" stroke-width="3.5" fill="none" opacity=".65" stroke-linecap="round"/>
+            <path d="M 130 296 C 130 307 137 314 143 314 C 149 314 156 307 156 298 C 148 294 138 294 130 296 Z" fill="#fbfaf5" stroke="#e2e0d8" stroke-width="1.3"/>
+            <path d="M 139 302 L 138 310 M 147 302 L 148 310" stroke="#d9d6cd" stroke-width="1.3" stroke-linecap="round"/>
+          </g>
+          <g class="leg leg-r">
+            <path d="M 184 258 C 190 274 190 292 187 304 C 181 310 171 310 166 304 C 163 288 164 268 168 258 Z" fill="url(#furGrad)" stroke="#9aa1a4" stroke-width="1.8"/>
+            <path d="M 189 274 C 181 277 173 277 165 274" stroke="#5f676c" stroke-width="3.5" fill="none" opacity=".65" stroke-linecap="round"/>
+            <path d="M 190 288 C 182 291 172 291 164 288" stroke="#5f676c" stroke-width="3.5" fill="none" opacity=".65" stroke-linecap="round"/>
+            <path d="M 190 296 C 190 307 183 314 177 314 C 171 314 164 307 164 298 C 172 294 182 294 190 296 Z" fill="#fbfaf5" stroke="#e2e0d8" stroke-width="1.3"/>
+            <path d="M 181 302 L 182 310 M 173 302 L 172 310" stroke="#d9d6cd" stroke-width="1.3" stroke-linecap="round"/>
+          </g>
+
+          <!-- head -->
+          <g class="head" id="head">
+            <!-- ears -->
+            <g class="ear ear-l">
+              <path d="M 102 96 L 94 22 Q 93 14 100 20 L 150 60 Q 155 64 150 72 Z" fill="url(#furGrad)" stroke="#949b9e" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M 106 86 L 100 32 Q 99 28 103 32 L 140 64 Q 143 67 140 70 Z" fill="#d9aeb0" opacity=".88"/>
+              <path d="M 102 92 L 96 30" stroke="#8f969a" stroke-width="2.5" opacity=".55" stroke-linecap="round"/>
+            </g>
+            <g class="ear ear-r">
+              <path d="M 218 96 L 226 22 Q 227 14 220 20 L 170 60 Q 165 64 170 72 Z" fill="url(#furGrad)" stroke="#949b9e" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M 214 86 L 220 32 Q 221 28 217 32 L 180 64 Q 177 67 180 70 Z" fill="#d9aeb0" opacity=".88"/>
+              <path d="M 218 92 L 224 30" stroke="#8f969a" stroke-width="2.5" opacity=".55" stroke-linecap="round"/>
+            </g>
+
+            <path id="headShape" d="M 86 132 C 86 92 112 68 160 68 C 208 68 234 92 234 132 C 234 174 204 202 160 202 C 116 202 86 174 86 132 Z"
+                  fill="url(#headGrad)" stroke="#9aa1a4" stroke-width="2"/>
+
+            <!-- silver tabby markings -->
+            <g clip-path="url(#headClip)" stroke="#5b646a" stroke-linecap="round" fill="none" opacity=".68">
+              <path d="M 142 64 C 144 84 150 98 158 106" stroke-width="5"/>
+              <path d="M 178 64 C 176 84 170 98 162 106" stroke-width="5"/>
+              <path d="M 126 68 C 130 88 136 100 144 108" stroke-width="4"/>
+              <path d="M 194 68 C 190 88 184 100 176 108" stroke-width="4"/>
+              <path d="M 108 78 C 114 94 122 104 132 110" stroke-width="4"/>
+              <path d="M 212 78 C 206 94 198 104 188 110" stroke-width="4"/>
+              <path d="M 94 98 C 102 108 110 112 118 114" stroke-width="3.5"/>
+              <path d="M 226 98 C 218 108 210 112 202 114" stroke-width="3.5"/>
+              <path d="M 90 124 C 100 126 108 130 114 134" stroke-width="3.5"/>
+              <path d="M 230 124 C 220 126 212 130 206 134" stroke-width="3.5"/>
+              <path d="M 92 148 C 102 150 108 152 114 154" stroke-width="3"/>
+              <path d="M 228 148 C 218 150 212 152 206 154" stroke-width="3"/>
+            </g>
+            <!-- pale blaze between the eyes, widening toward the muzzle -->
+            <path d="M 154 72 C 152 100 150 128 148 158 L 172 158 C 170 128 168 100 166 72 Z" fill="#f5f4ef" opacity=".45"/>
+
+            <!-- white muzzle and chin -->
+            <ellipse cx="142" cy="180" rx="30" ry="19" fill="#f9f8f3"/>
+            <ellipse cx="178" cy="180" rx="30" ry="19" fill="#f9f8f3"/>
+            <ellipse cx="160" cy="191" rx="25" ry="13" fill="#fbfaf6"/>
+
+            <!-- big yellow-green eyes -->
+            <g class="eyes-open">
+              <g transform="translate(128 138)">
+                <ellipse cx="0" cy="2" rx="21" ry="23" fill="#4a5052" opacity=".18"/>
+                <ellipse rx="20" ry="22" fill="url(#eyeGrad)" stroke="#4e5a29" stroke-width="2.6"/>
+                <ellipse class="pupil" rx="5.5" ry="15" fill="#2b3025"/>
+                <ellipse cx="-7" cy="-9" rx="5.4" ry="6.4" fill="#fff" opacity=".92"/>
+                <circle cx="8" cy="8" r="2.6" fill="#fff" opacity=".66"/>
+                <path d="M -20 -5 Q 0 -25 20 -5" stroke="#4e5a29" stroke-width="3" fill="none" opacity=".55" stroke-linecap="round"/>
+              </g>
+              <g transform="translate(192 138)">
+                <ellipse cx="0" cy="2" rx="21" ry="23" fill="#4a5052" opacity=".18"/>
+                <ellipse rx="20" ry="22" fill="url(#eyeGrad)" stroke="#4e5a29" stroke-width="2.6"/>
+                <ellipse class="pupil" rx="5.5" ry="15" fill="#2b3025"/>
+                <ellipse cx="-7" cy="-9" rx="5.4" ry="6.4" fill="#fff" opacity=".92"/>
+                <circle cx="8" cy="8" r="2.6" fill="#fff" opacity=".66"/>
+                <path d="M -20 -5 Q 0 -25 20 -5" stroke="#4e5a29" stroke-width="3" fill="none" opacity=".55" stroke-linecap="round"/>
+              </g>
+            </g>
+            <g class="eyes-closed" stroke="#5f5a52" stroke-width="3.6" fill="none" stroke-linecap="round">
+              <path d="M 108 138 Q 128 154 148 138"/><path d="M 172 138 Q 192 154 212 138"/>
+            </g>
+            <g class="eyes-happy" stroke="#5f5a52" stroke-width="3.6" fill="none" stroke-linecap="round">
+              <path d="M 108 145 Q 128 125 148 145"/><path d="M 172 145 Q 192 125 212 145"/>
+            </g>
+
+            <!-- blush -->
+            <g class="blush" fill="#f3a0af">
+              <ellipse cx="108" cy="164" rx="14" ry="8" opacity=".55"/>
+              <ellipse cx="212" cy="164" rx="14" ry="8" opacity=".55"/>
+            </g>
+
+            <!-- nose, mouth, whiskers -->
+            <path d="M 152 164 C 156 160 164 160 168 164 C 168 169 164 173 160 175 C 156 173 152 169 152 164 Z" fill="#b88177" stroke="#7a5952" stroke-width="1.5"/>
+            <g class="mouth" stroke="#7a625b" stroke-width="2" fill="none" stroke-linecap="round">
+              <path d="M 160 175 L 160 180"/>
+              <path d="M 160 180 C 154 188 146 186 144 180"/>
+              <path d="M 160 180 C 166 188 174 186 176 180"/>
+            </g>
+            <ellipse class="yawn" cx="160" cy="183" rx="8" ry="11" fill="#955d5d" stroke="#6d4c4c" stroke-width="1.5"/>
+            <g stroke="#b6bcbc" stroke-width="1.5" fill="none" opacity=".85" stroke-linecap="round">
+              <path d="M 120 168 C 102 163 88 161 76 163"/>
+              <path d="M 120 176 C 100 175 86 176 74 180"/>
+              <path d="M 122 184 C 106 188 94 192 84 197"/>
+              <path d="M 200 168 C 218 163 232 161 244 163"/>
+              <path d="M 200 176 C 220 175 234 176 246 180"/>
+              <path d="M 198 184 C 214 188 226 192 236 197"/>
+            </g>
+          </g>
+
+          <!-- sleep Zzz -->
+          <g class="zzz" fill="#8fa9c6" font-family="system-ui,sans-serif" font-weight="700">
+            <text x="238" y="98" font-size="18">z</text>
+            <text x="254" y="74" font-size="24">Z</text>
+            <text x="274" y="46" font-size="30">Z</text>
+          </g>
+
+        </g>
+      </g>
+    </g>
+  </svg>
+</div>
+
+<div id="hint">Drag me · Click to pet · I fall asleep after 30s · Arrow keys move me too</div>
+<div id="panel">
+  <button id="btn-bg" type="button" title="Toggle checkerboard to verify transparency">BG: Transparent</button>
+  <button id="btn-sleep" type="button">Sleep</button>
+  <button id="btn-sound" type="button">Sound: Off</button>
+  <button id="btn-size" type="button">Size: 300</button>
+  <button id="btn-reset" type="button">Reset</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  window.addEventListener('error', function (e) {
+    document.documentElement.setAttribute('data-js-error', e.message);
+  });
+
+  var pet = document.getElementById('pet');
+  var catRoot = document.getElementById('catRoot');
+  var bubble = document.getElementById('bubble');
+  var bits = document.getElementById('particles');
+  var hint = document.getElementById('hint');
+  var pupils = Array.prototype.slice.call(document.querySelectorAll('.pupil'));
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var HEART = '<svg viewBox="0 0 24 24"><path d="M12 21.2C11 20.4 3 15.3 3 9.6 3 6.9 5.1 5 7.6 5c1.7 0 3.3.9 4.4 2.4C13.1 5.9 14.7 5 16.4 5 18.9 5 21 6.9 21 9.6c0 5.7-8 10.8-9 11.6z" fill="#f58da4" stroke="#e4768f" stroke-width=".8"/></svg>';
+  var STAR = '<svg viewBox="0 0 24 24"><path d="M12 2l2.3 6.7L21 11l-6.7 2.3L12 20l-2.3-6.7L3 11l6.7-2.3z" fill="#ffd166" stroke="#eab24c" stroke-width=".8"/></svg>';
+  var NOTE = '<svg viewBox="0 0 24 24"><path d="M9 17V5l10-2v11" fill="none" stroke="#9dbfe0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="6.6" cy="18" rx="2.8" ry="2.2" fill="#9dbfe0"/><ellipse cx="16.6" cy="15" rx="2.8" ry="2.2" fill="#9dbfe0"/></svg>';
+
+  var SIZES = [240, 300, 360, 420];
+  var R = {
+    happy:    {mood:'happy',    anim:'bounce',  text:'Meow~ so nice',     bit:'heart', snd:'meow'},
+    happy2:   {mood:'happy',    anim:'wiggle',  text:'More pets, please',  bit:'heart', snd:'purr'},
+    surprise: {mood:'surprise', anim:'pounce',  text:'Mrow?!',             bit:'star',  snd:'meow'},
+    purr:     {mood:'purr',     anim:'wiggle',  text:'Purr purr purr...',  bit:'note',  snd:'purr'},
+    shy:      {mood:'shy',      anim:'shake',   text:"Don't stare~",       bit:'heart', snd:'purr'},
+    play:     {mood:'play',     anim:'pounce',  text:'Wanna play?',        bit:'star',  snd:'meow'},
+    stretch:  {mood:'stretch',  anim:'stretch', text:'Mmm... stre-e-etch', bit:'star',  snd:'yawn'}
+  };
+  var KEYS = ['happy','happy2','surprise','purr','shy','play'];
+
+  var state = 'idle';
+  var lastTouch = Date.now();
+  var x = 0, y = 0, petW = 300, sizeIdx = 1;
+  var animTimer = null, bubbleTimer = null;
+  var drag = null, combo = 0, comboTimer = null;
+  var soundOn = false, audioCtx = null;
+  var ANIMS = ['stretch','bounce','pounce','wiggle','shake','drop'];
+
+  function dims(){ return {w:pet.offsetWidth, h:pet.offsetHeight}; }
+  function clampPos(){
+    var s = dims();
+    x = Math.max(-s.w*0.32, Math.min(window.innerWidth - s.w*0.68, x));
+    y = Math.max(-24, Math.min(window.innerHeight - s.h*0.55, y));
+  }
+  function applyPos(){
+    pet.style.transform = 'translate3d(' + Math.round(x) + 'px,' + Math.round(y) + 'px,0)';
+    bubble.classList.toggle('below', y < 64);
+  }
+  function save(){
+    try { localStorage.setItem('catpet-pos', JSON.stringify({x:x, y:y, w:petW})); } catch (e) {}
+  }
+  function setState(s){ state = s; pet.dataset.state = s; }
+  function clearAnim(){
+    for (var i=0;i<ANIMS.length;i++) pet.classList.remove('anim-' + ANIMS[i]);
+    pet.classList.remove('twitch');
+    if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+  }
+  function playAnim(name, ms){
+    clearAnim();
+    void pet.offsetWidth;                 /* force reflow so the animation can replay */
+    pet.classList.add('anim-' + name);
+    animTimer = setTimeout(function(){ pet.classList.remove('anim-' + name); }, ms || 900);
+  }
+  function say(text, ms){
+    bubble.textContent = text;
+    bubble.classList.add('show');
+    if (bubbleTimer) clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(function(){ bubble.classList.remove('show'); }, ms || 1900);
+  }
+  function spawn(kind, count){
+    var glyph = kind === 'heart' ? HEART : (kind === 'star' ? STAR : NOTE);
+    for (var i=0;i<count;i++){
+      var el = document.createElement('span');
+      el.className = 'bit';
+      el.innerHTML = glyph;
+      el.style.left = (24 + Math.random()*52) + '%';
+      el.style.top  = (28 + Math.random()*30) + '%';
+      el.style.setProperty('--dx', (Math.random()*76-38) + 'px');
+      el.style.setProperty('--rot', (Math.random()*80-40) + 'deg');
+      el.style.animationDelay = (i*95) + 'ms';
+      bits.appendChild(el);
+      (function(node, delay){
+        setTimeout(function(){ node.remove(); }, 1900 + delay);
+      })(el, i*95);
+    }
+  }
+  function sound(kind){
+    if (!soundOn) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audioCtx = audioCtx || new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var t = audioCtx.currentTime;
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      if (kind === 'purr'){
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(95, t);
+        o.frequency.linearRampToValueAtTime(108, t+.4);
+      } else if (kind === 'yawn'){
+        o.type = 'sine';
+        o.frequency.setValueAtTime(300, t);
+        o.frequency.exponentialRampToValueAtTime(520, t+.18);
+        o.frequency.exponentialRampToValueAtTime(280, t+.5);
+      } else {
+        o.type = 'sine';
+        o.frequency.setValueAtTime(520, t);
+        o.frequency.exponentialRampToValueAtTime(780, t+.11);
+        o.frequency.exponentialRampToValueAtTime(430, t+.3);
+      }
+      g.gain.setValueAtTime(.0001, t);
+      g.gain.exponentialRampToValueAtTime(kind === 'purr' ? .045 : .075, t+.03);
+      g.gain.exponentialRampToValueAtTime(.0001, t + (kind === 'yawn' ? .55 : .36));
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t+.6);
+    } catch (e) {}
+  }
+
+  function react(key){
+    lastTouch = Date.now();
+    clearAnim();
+    if (state === 'sleep') { wake(); return; }
+    var r = R[key] || R[KEYS[Math.floor(Math.random()*KEYS.length)]];
+    combo++;
+    if (comboTimer) clearTimeout(comboTimer);
+    comboTimer = setTimeout(function(){ combo = 0; }, 1500);
+    setState(r.mood);
+    var dur = r.anim === 'stretch' ? 1600 : 900;
+    playAnim(r.anim, dur);
+    say(combo >= 4 ? "You're the best!" : r.text, r.anim === 'stretch' ? 2100 : 1800);
+    spawn(r.bit, combo >= 4 ? 7 : Math.min(5, 2 + combo));
+    sound(r.snd);
+    setTimeout(function(){ if (state === r.mood) setState('idle'); }, r.anim === 'stretch' ? 1700 : 1150);
+  }
+  function sleep(){
+    if (state === 'sleep') return;
+    clearAnim(); setState('sleep'); bubble.classList.remove('show');
+  }
+  function wake(){
+    if (state !== 'sleep') return;
+    setState('idle');
+    playAnim('shake', 650);
+    say("Mmf... I'm awake", 1600);
+    sound('meow');
+    lastTouch = Date.now();
+  }
+  function blink(){
+    if (state === 'sleep' || state === 'drag' || state === 'stretch') return;
+    pet.classList.add('blink');
+    setTimeout(function(){ pet.classList.remove('blink'); }, 150);
+  }
+
+  /* ---------- idle life ---------- */
+  function loopBlink(){
+    setTimeout(function(){
+      blink();
+      if (Math.random() < .28) setTimeout(blink, 230);
+      loopBlink();
+    }, 2200 + Math.random()*4200);
+  }
+  function loopTwitch(){
+    setTimeout(function(){
+      if (state === 'idle' && !reduceMotion){
+        pet.classList.add('twitch');
+        setTimeout(function(){ pet.classList.remove('twitch'); }, 500);
+      }
+      loopTwitch();
+    }, 5000 + Math.random()*8000);
+  }
+  function loopStretch(){
+    setTimeout(function(){
+      if (state === 'idle' && Date.now() - lastTouch > 9000 && !reduceMotion) react('stretch');
+      loopStretch();
+    }, 24000 + Math.random()*16000);
+  }
+  setInterval(function(){
+    if (state === 'idle' && Date.now() - lastTouch > 30000 && !reduceMotion) sleep();
+  }, 2500);
+
+  /* ---------- eyes follow the pointer ---------- */
+  var px = -9999, py = -9999, rafPending = false;
+  window.addEventListener('pointermove', function(e){
+    px = e.clientX; py = e.clientY;
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(function(){
+      rafPending = false;
+      var s = dims();
+      var cx = x + s.w/2, cy = y + s.h*.40;
+      var dx = Math.max(-1, Math.min(1, (px - cx) / (s.w*1.7)));
+      var dy = Math.max(-1, Math.min(1, (py - cy) / (s.h*1.4)));
+      var tx = (dx*5).toFixed(1) + 'px', ty = (dy*3.5).toFixed(1) + 'px';
+      for (var i=0;i<pupils.length;i++) pupils[i].style.transform = 'translate(' + tx + ',' + ty + ')';
+    });
+  }, {passive:true});
+
+  /* ---------- drag / click ---------- */
+  pet.addEventListener('pointerdown', function(e){
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    lastTouch = Date.now();
+    if (state === 'sleep') wake();
+    drag = {id:e.pointerId, sx:e.clientX, sy:e.clientY, ox:x, oy:y, lastX:e.clientX, moved:false};
+    try { pet.setPointerCapture(e.pointerId); } catch (err) {}
+    clearAnim();
+    setState('drag');
+    e.preventDefault();
+  });
+  pet.addEventListener('pointermove', function(e){
+    if (!drag || e.pointerId !== drag.id) return;
+    var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+    if (drag.moved){
+      x = drag.ox + dx; y = drag.oy + dy;
+      clampPos(); applyPos();
+      var tilt = Math.max(-9, Math.min(9, (e.clientX - drag.lastX)*1.1));
+      catRoot.style.transform = 'rotate(' + tilt.toFixed(1) + 'deg)';
+    }
+    drag.lastX = e.clientX;
+  });
+  function endDrag(e){
+    if (!drag || (e && e.pointerId !== drag.id)) return;
+    var moved = drag.moved;
+    drag = null;
+    catRoot.style.transform = 'rotate(0deg)';
+    if (state === 'drag') setState('idle');
+    if (moved){
+      playAnim('drop', 600);
+      save();
+      if (Math.random() < .35) say('Easy does it~', 1300);
+    } else {
+      react();
+    }
+    lastTouch = Date.now();
+  }
+  pet.addEventListener('pointerup', endDrag);
+  pet.addEventListener('pointercancel', endDrag);
+  pet.addEventListener('pointerenter', function(){ if (state === 'sleep') wake(); });
+  pet.addEventListener('keydown', function(e){
+    var step = 24;
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); react(); return; }
+    if (e.key === 'ArrowLeft') x -= step;
+    else if (e.key === 'ArrowRight') x += step;
+    else if (e.key === 'ArrowUp') y -= step;
+    else if (e.key === 'ArrowDown') y += step;
+    else return;
+    e.preventDefault(); lastTouch = Date.now(); clampPos(); applyPos(); save();
+  });
+
+  /* ---------- little control panel ---------- */
+  var btnBg = document.getElementById('btn-bg');
+  var btnSleep = document.getElementById('btn-sleep');
+  var btnSound = document.getElementById('btn-sound');
+  var btnSize = document.getElementById('btn-size');
+  var btnReset = document.getElementById('btn-reset');
+  btnBg.addEventListener('click', function(){
+    var on = document.body.classList.toggle('preview');
+    this.textContent = on ? 'BG: Checkerboard' : 'BG: Transparent';
+    lastTouch = Date.now();
+  });
+  btnSleep.addEventListener('click', function(){
+    if (state === 'sleep') wake(); else { clearAnim(); sleep(); say("I'm sleepy...", 1400); }
+    lastTouch = Date.now();
+  });
+  btnSound.addEventListener('click', function(){
+    soundOn = !soundOn;
+    this.textContent = soundOn ? 'Sound: On' : 'Sound: Off';
+    if (soundOn) sound('meow');
+    lastTouch = Date.now();
+  });
+  btnSize.addEventListener('click', function(){
+    sizeIdx = (sizeIdx + 1) % SIZES.length;
+    petW = SIZES[sizeIdx];
+    document.documentElement.style.setProperty('--pet-w', petW + 'px');
+    this.textContent = 'Size: ' + petW;
+    clampPos(); applyPos(); save(); lastTouch = Date.now();
+  });
+  btnReset.addEventListener('click', function(){
+    var s = dims();
+    x = (window.innerWidth - s.w)/2; y = window.innerHeight - s.h - 60;
+    clampPos(); applyPos(); save();
+    setState('idle'); say("I'm back~", 1400); lastTouch = Date.now();
+  });
+  setInterval(function(){
+    btnSleep.textContent = state === 'sleep' ? 'Wake' : 'Sleep';
+  }, 400);
+
+  /* ---------- boot ---------- */
+  function init(){
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem('catpet-pos') || 'null'); } catch (e) {}
+    if (saved && typeof saved.w === 'number'){
+      petW = saved.w;
+      var idx = SIZES.indexOf(petW); if (idx >= 0) sizeIdx = idx;
+      document.documentElement.style.setProperty('--pet-w', petW + 'px');
+      btnSize.textContent = 'Size: ' + petW;
+    }
+    var s = dims();
+    if (saved && typeof saved.x === 'number' && typeof saved.y === 'number'){
+      x = saved.x; y = saved.y;
+    } else {
+      x = window.innerWidth - s.w - 70;
+      y = window.innerHeight - s.h - 50;
+    }
+    clampPos(); applyPos(); setState('idle');
+    setTimeout(function(){ hint.classList.add('fade'); }, 9000);
+    setTimeout(function(){ if (state === 'idle') say("Meow~ I'm Blue", 2200); }, 1200);
+    loopBlink(); loopTwitch(); loopStretch();
+    window.addEventListener('resize', function(){ clampPos(); applyPos(); });
+  }
+  init();
+
+  /* tiny hook, handy for automated smoke tests */
+  window.__catPet = {
+    get state(){ return state; },
+    get pos(){ return {x:x, y:y}; },
+    react:react, sleep:sleep, wake:wake, blink:blink
+  };
+  console.log('[cat-pet] ready');
+})();
+</script>
+</body>
+</html>
